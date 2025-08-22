@@ -311,7 +311,7 @@ export default function Home() {
       
       setFormattedOutput(formatted);
       setError("");
-    } catch (err) {
+    } catch {
       setError(`Invalid ${format} format`);
       setFormattedOutput("");
       setJsonLines([]);
@@ -395,8 +395,8 @@ export default function Home() {
       await navigator.clipboard.writeText(codeSnippet);
       setClickedLine(lineIndex);
       setTimeout(() => setClickedLine(null), 500);
-    } catch (err) {
-      console.error("Failed to copy path: ", err);
+    } catch {
+      console.error("Failed to copy path");
     }
   };
 
@@ -415,8 +415,8 @@ export default function Home() {
           const keyPath = JSON.parse(line.path);
           const codeSnippet = generateCodePath(keyPath, selectedLanguage, isFromJSON, variableName, includeFallback);
           snippets.push(`# ${line.content.trim()}\n${codeSnippet}`);
-        } catch (err) {
-          console.error("Failed to generate snippet for line: ", err);
+        } catch {
+          console.error("Failed to generate snippet for line");
         }
       }
     });
@@ -427,8 +427,8 @@ export default function Home() {
         await navigator.clipboard.writeText(allSnippets);
         setCopyAllSuccess(true);
         setTimeout(() => setCopyAllSuccess(false), 2000);
-      } catch (err) {
-        console.error("Failed to copy all snippets: ", err);
+      } catch {
+        console.error("Failed to copy all snippets");
       }
     }
   };
@@ -482,11 +482,11 @@ export default function Home() {
       try {
         // Method 1: scrollIntoView with smooth behavior
         element.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
-      } catch (e) {
+      } catch {
         try {
           // Method 2: scrollIntoView without smooth behavior (fallback)
           element.scrollIntoView({ block: 'center', inline: 'nearest' });
-        } catch (e2) {
+        } catch {
           // Method 3: Manual scroll calculation (final fallback)
           const container = element.closest('.overflow-auto');
           if (container) {
@@ -725,7 +725,7 @@ export default function Home() {
                           onChange={(e) => setIncludeFallback(e.target.checked)}
                           className="rounded"
                         />
-                        Future-proof snippets: include default value if entry doesn't exist
+                        Future-proof snippets: include default value if entry doesn&apos;t exist
                       </label>
                     </div>
                   </div>
