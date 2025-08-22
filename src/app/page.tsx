@@ -409,6 +409,20 @@ export default function Home() {
           <p className="text-gray-600">
             100% client-side processing. Everything is run in your browser. No data is collected. 
           </p>
+          <details className="text-sm text-gray-500 mt-2 max-w-md mx-auto">
+            <summary className="cursor-pointer hover:text-gray-700">🔍 How to verify no data collection</summary>
+            <div className="mt-2 p-3 bg-gray-50 rounded text-left">
+              <p className="mb-2"><strong>Method 1 - Network Tab:</strong></p>
+              <ol className="list-decimal list-inside space-y-1 mb-3">
+                <li>Open browser DevTools (F12)</li>
+                <li>Go to Network tab</li>
+                <li>Format some JSON</li>
+                <li>Verify no requests to external servers</li>
+              </ol>
+              <p className="mb-2"><strong>Method 2 - Source Code:</strong></p>
+              <p>Review the open source code on GitHub - all processing happens in your browser.</p>
+            </div>
+          </details>
           {detectedFormat && (
             <div className="mt-2">
               <span className="inline-block bg-blue-100 text-blue-800 text-sm font-medium px-3 py-1 rounded-full">
