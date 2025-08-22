@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 
 interface JSONLine {
   content: string;
   path: string;
   isField: boolean;
+  isBookmarked?: boolean;
 }
 
 export default function Home() {
@@ -21,6 +22,10 @@ export default function Home() {
   const [isInputCollapsed, setIsInputCollapsed] = useState(false);
   const [variableName, setVariableName] = useState("data");
   const [includeFallback, setIncludeFallback] = useState(true);
+  const [bookmarkedLines, setBookmarkedLines] = useState<Set<number>>(new Set());
+  const [currentBookmarkIndex, setCurrentBookmarkIndex] = useState<number>(-1);
+  const [flashingBookmark, setFlashingBookmark] = useState<number | null>(null);
+  const [copyAllSuccess, setCopyAllSuccess] = useState(false);
 
   const detectFormat = (input: string): string => {
     const trimmed = input.trim();
@@ -395,6 +400,143 @@ export default function Home() {
     }
   };
 
+  // Copy all bookmarked snippets to clipboard
+  const copyAllBookmarkedSnippets = async () => {
+    const bookmarkArray = Array.from(bookmarkedLines).sort((a, b) => a - b);
+    if (bookmarkArray.length === 0) return;
+
+    const snippets: string[] = [];
+    const isFromJSON = detectedFormat === "JSON";
+
+    bookmarkArray.forEach(lineIndex => {
+      const line = jsonLines[lineIndex];
+      if (line && line.isField && line.path) {
+        try {
+          const keyPath = JSON.parse(line.path);
+          const codeSnippet = generateCodePath(keyPath, selectedLanguage, isFromJSON, variableName, includeFallback);
+          snippets.push(`# ${line.content.trim()}\n${codeSnippet}`);
+        } catch (err) {
+          console.error("Failed to generate snippet for line: ", err);
+        }
+      }
+    });
+
+    if (snippets.length > 0) {
+      const allSnippets = snippets.join('\n\n');
+      try {
+        await navigator.clipboard.writeText(allSnippets);
+        setCopyAllSuccess(true);
+        setTimeout(() => setCopyAllSuccess(false), 2000);
+      } catch (err) {
+        console.error("Failed to copy all snippets: ", err);
+      }
+    }
+  };
+
+  // Clear all bookmarks
+  const clearAllBookmarks = () => {
+    setBookmarkedLines(new Set());
+    setCurrentBookmarkIndex(-1);
+    setFlashingBookmark(null);
+  };
+
+  // Bookmark functionality
+  const toggleBookmark = (lineIndex: number) => {
+    const newBookmarks = new Set(bookmarkedLines);
+    if (newBookmarks.has(lineIndex)) {
+      newBookmarks.delete(lineIndex);
+      // If we removed the current bookmark, reset the index
+      if (currentBookmarkIndex >= 0) {
+        const bookmarkArray = Array.from(newBookmarks).sort((a, b) => a - b);
+        if (bookmarkArray.length === 0) {
+          setCurrentBookmarkIndex(-1);
+        } else if (lineIndex <= bookmarkArray[currentBookmarkIndex]) {
+          setCurrentBookmarkIndex(Math.max(0, currentBookmarkIndex - 1));
+        }
+      }
+    } else {
+      newBookmarks.add(lineIndex);
+    }
+    setBookmarkedLines(newBookmarks);
+  };
+
+  // Keyboard navigation between bookmarks
+  const navigateBookmarks = useCallback((direction: 'next' | 'prev') => {
+    const bookmarkArray = Array.from(bookmarkedLines).sort((a, b) => a - b);
+    if (bookmarkArray.length === 0) return;
+
+    let newIndex;
+    if (direction === 'next') {
+      newIndex = currentBookmarkIndex < bookmarkArray.length - 1 ? currentBookmarkIndex + 1 : 0;
+    } else {
+      newIndex = currentBookmarkIndex > 0 ? currentBookmarkIndex - 1 : bookmarkArray.length - 1;
+    }
+    
+    setCurrentBookmarkIndex(newIndex);
+    
+    // Scroll to the bookmarked line with fallback methods
+    const targetLine = bookmarkArray[newIndex];
+    const element = document.querySelector(`[data-line-index="${targetLine}"]`);
+    if (element) {
+      // Try multiple scroll methods for better browser compatibility
+      try {
+        // Method 1: scrollIntoView with smooth behavior
+        element.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+      } catch (e) {
+        try {
+          // Method 2: scrollIntoView without smooth behavior (fallback)
+          element.scrollIntoView({ block: 'center', inline: 'nearest' });
+        } catch (e2) {
+          // Method 3: Manual scroll calculation (final fallback)
+          const container = element.closest('.overflow-auto');
+          if (container) {
+            const containerRect = container.getBoundingClientRect();
+            const elementRect = element.getBoundingClientRect();
+            const scrollTop = container.scrollTop + elementRect.top - containerRect.top - (containerRect.height / 2) + (elementRect.height / 2);
+            container.scrollTop = scrollTop;
+          }
+        }
+      }
+    }
+    
+    // Add visual flash effect
+    setFlashingBookmark(targetLine);
+    setTimeout(() => setFlashingBookmark(null), 1000);
+  }, [bookmarkedLines, currentBookmarkIndex]);
+
+  // Keyboard event handler
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Only handle arrow keys when not focused on input elements
+      if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+      
+      // Use Cmd+Arrow on Mac, Alt+Arrow on other platforms
+      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+      const modifierKey = isMac ? event.metaKey : event.altKey;
+      
+      if (event.key === 'ArrowDown' && modifierKey) {
+        event.preventDefault();
+        navigateBookmarks('next');
+      } else if (event.key === 'ArrowUp' && modifierKey) {
+        event.preventDefault();
+        navigateBookmarks('prev');
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [navigateBookmarks]);
+
+  // Reset bookmarks when content changes
+  useEffect(() => {
+    setBookmarkedLines(new Set());
+    setCurrentBookmarkIndex(-1);
+    setFlashingBookmark(null);
+    setCopyAllSuccess(false);
+  }, [detectedFormat, input]);
+
   return (
     <>
       <script
@@ -535,18 +677,20 @@ export default function Home() {
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                     </svg>
-                    Copy Output
+                    Copy Formatted Output
                   </>
                 )}
               </button>
             </div>
             {(detectedFormat === "JSON" || detectedFormat === "YAML") && (
               <div className="mb-2">
-                <p className="text-sm text-gray-500 mb-2">
-                  Hover over line to get code snippet to access field
-                </p>
+                <div className="text-sm text-gray-500 mb-2 space-y-1">
+                  <p>Hover over line to get code snippet to access field</p>
+                  <p>Click checkbox to bookmark entries • Use <kbd className="px-1 py-0.5 bg-gray-200 rounded text-xs">⌘+↑/↓</kbd> (Mac) or <kbd className="px-1 py-0.5 bg-gray-200 rounded text-xs">Alt+↑/↓</kbd> to navigate bookmarks</p>
+                </div>
+
                 <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-                  <h3 className="text-sm font-medium text-gray-700 mb-3">Field Access Code Snippet Options</h3>
+                  <h3 className="text-sm font-medium text-gray-700 mb-3">Code snippet options</h3>
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <label className="text-sm text-gray-600">Language:</label>
@@ -581,7 +725,7 @@ export default function Home() {
                           onChange={(e) => setIncludeFallback(e.target.checked)}
                           className="rounded"
                         />
-                        Future-proof: include default fallbacks if entry doesn't exist
+                        Future-proof snippets: include default value if entry doesn't exist
                       </label>
                     </div>
                   </div>
@@ -593,31 +737,64 @@ export default function Home() {
                 <div className="text-red-500 font-mono text-sm">{error}</div>
               ) : (detectedFormat === "JSON" || detectedFormat === "YAML") && jsonLines.length > 0 ? (
                 <div className="font-mono text-sm text-gray-800">
-                  {jsonLines.map((line, index) => (
-                    <div
-                      key={index}
-                      className={`relative group leading-relaxed px-2 py-1 rounded ${
-                        hoveredLine === index ? 'bg-gray-100' : ''
-                      }`}
-                      onMouseEnter={() => setHoveredLine(index)}
-                      onMouseLeave={() => setHoveredLine(null)}
-                    >
-                      <span className="whitespace-pre-wrap break-words">{line.content}</span>
-                      {line.isField && hoveredLine === index && (
-                        <button
-                          onClick={() => copyCodePath(line.path, index)}
-                          className={`absolute right-2 top-0 px-2 py-1 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-all duration-200 ${
-                            clickedLine === index 
-                              ? 'bg-green-600 hover:bg-green-700' 
-                              : 'bg-blue-600 hover:bg-blue-700'
-                          }`}
-                          title={`Copy ${selectedLanguage} code`}
-                        >
-                          {clickedLine === index ? '✓ Copied!' : `📋 ${selectedLanguage}`}
-                        </button>
-                      )}
-                    </div>
-                  ))}
+                  {jsonLines.map((line, index) => {
+                    const isBookmarked = bookmarkedLines.has(index);
+                    const isCurrentBookmark = currentBookmarkIndex >= 0 && 
+                      Array.from(bookmarkedLines).sort((a, b) => a - b)[currentBookmarkIndex] === index;
+                    const isFlashing = flashingBookmark === index;
+                    
+                    return (
+                      <div
+                        key={index}
+                        data-line-index={index}
+                        className={`relative group leading-relaxed py-1 rounded flex items-start gap-2 transition-all duration-300 ${
+                          hoveredLine === index ? 'bg-gray-100' : ''
+                        } ${isCurrentBookmark ? 'bg-blue-50 border-l-4 border-blue-400 ring-2 ring-blue-200' : ''} ${
+                          isBookmarked && !isCurrentBookmark ? 'bg-yellow-50 border-l-2 border-yellow-400' : ''
+                        } ${isFlashing ? 'animate-pulse bg-green-100 ring-2 ring-green-400' : ''}`}
+                        onMouseEnter={() => setHoveredLine(index)}
+                        onMouseLeave={() => setHoveredLine(null)}
+                      >
+                        {/* Bookmark checkbox - visible on hover for fields or always visible if bookmarked */}
+                        <div className="flex-shrink-0 pt-0.5">
+                          {line.isField && (hoveredLine === index || isBookmarked) && (
+                            <button
+                              onClick={() => toggleBookmark(index)}
+                              className={`w-4 h-4 border-2 rounded-sm transition-all duration-200 ${
+                                isBookmarked 
+                                  ? 'bg-blue-500 border-blue-500 text-white' 
+                                  : 'border-gray-300 hover:border-blue-400 bg-white'
+                              }`}
+                              title={isBookmarked ? 'Remove bookmark' : 'Add bookmark'}
+                            >
+                              {isBookmarked && (
+                                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                </svg>
+                              )}
+                            </button>
+                          )}
+                          {!line.isField && <div className="w-4 h-4"></div>}
+                        </div>
+                        
+                        <span className="whitespace-pre-wrap break-words flex-1">{line.content}</span>
+                        
+                        {line.isField && hoveredLine === index && (
+                          <button
+                            onClick={() => copyCodePath(line.path, index)}
+                            className={`absolute right-2 top-0 px-2 py-1 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-all duration-200 ${
+                              clickedLine === index 
+                                ? 'bg-green-600 hover:bg-green-700' 
+                                : 'bg-blue-600 hover:bg-blue-700'
+                            }`}
+                            title={`Copy ${selectedLanguage} code`}
+                          >
+                            {clickedLine === index ? '✓ Copied!' : `📋 ${selectedLanguage}`}
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               ) : (
                 <pre className="font-mono text-sm text-gray-800 whitespace-pre-wrap">
@@ -627,6 +804,43 @@ export default function Home() {
             </div>
           </div>
         </div>
+
+        {/* Floating bookmark action buttons */}
+        {(detectedFormat === "JSON" || detectedFormat === "YAML") && bookmarkedLines.size > 0 && (
+          <div className="fixed bottom-6 right-6 flex flex-col gap-2 z-50">
+            <button
+              onClick={copyAllBookmarkedSnippets}
+              className="px-4 py-2 bg-green-600 text-white text-sm rounded-full hover:bg-green-700 transition-all duration-200 shadow-lg hover:shadow-xl flex items-center gap-2 group"
+              title="Copy all bookmarked code snippets"
+            >
+              {copyAllSuccess ? (
+                <>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span className="hidden group-hover:inline">Copied!</span>
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                  <span className="hidden group-hover:inline">Copy Snippets for All Bookmarks ({bookmarkedLines.size})</span>
+                </>
+              )}
+            </button>
+            <button
+              onClick={clearAllBookmarks}
+              className="px-4 py-2 bg-red-600 text-white text-sm rounded-full hover:bg-red-700 transition-all duration-200 shadow-lg hover:shadow-xl flex items-center gap-2 group"
+              title="Clear all bookmarks"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+              <span className="hidden group-hover:inline">Clear All Bookmarks</span>
+            </button>
+          </div>
+        )}
         
         <footer className="text-center mt-8 pt-6 border-t border-gray-200 flex-shrink-0">
           <p className="text-sm text-gray-500 mb-3">
