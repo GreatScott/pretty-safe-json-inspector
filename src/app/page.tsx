@@ -464,13 +464,6 @@ export default function Home() {
               <p>Review the open source code on GitHub - all processing happens in your browser.</p>
             </div>
           </details>
-          {detectedFormat && (
-            <div className="mt-2">
-              <span className="inline-block bg-blue-100 text-blue-800 text-sm font-medium px-3 py-1 rounded-full">
-                Detected: {detectedFormat}
-              </span>
-            </div>
-          )}
         </header>
 
         <div className={`grid gap-6 flex-1 min-h-0 ${isInputCollapsed ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-2'}`}>
@@ -515,9 +508,16 @@ export default function Home() {
               </div>
             )}
             <div className="flex justify-between items-center mb-2">
-              <h2 className="text-xl font-semibold text-gray-700">
-                Formatted Output
-              </h2>
+              <div className="flex items-center gap-3">
+                <h2 className="text-xl font-semibold text-gray-700">
+                  Formatted Output
+                </h2>
+                {detectedFormat && (
+                  <span className="inline-block bg-blue-100 text-blue-800 text-sm font-medium px-3 py-1 rounded-full">
+                    Detected: {detectedFormat}
+                  </span>
+                )}
+              </div>
               <button
                 onClick={copyToClipboard}
                 disabled={!formattedOutput || !!error}
