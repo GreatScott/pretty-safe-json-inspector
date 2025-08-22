@@ -394,8 +394,8 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4">
-      <div className="max-w-7xl mx-auto">
+    <div className="min-h-screen bg-gray-50 p-4 flex flex-col">
+      <div className="max-w-7xl mx-auto flex-1 flex flex-col">
         <header className="text-center mb-8">
           <h1 className="text-4xl font-bold text-gray-800 mb-2">
             Pretty Safe JSON Inspector
@@ -404,10 +404,23 @@ export default function Home() {
             Paste your code on the left, see it formatted on the right.
           </p>
           <p className="text-gray-600">
-            For JSON and YAML, get quick code-snippets for accessing individual entires.
+            100% client-side. Everything is run in your browser. No data is collected.
           </p>
-          <p className="text-gray-600">
-            100% client-side processing. Everything is run in your browser. No data is collected. 
+          <div className="mt-3">
+            <a 
+              href="https://buymeacoffee.com/greatscott" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg transition-colors font-bold text-sm shadow-sm text-black hover:opacity-90"
+              style={{
+                backgroundColor: '#D4A27F',
+                fontFamily: 'ui-serif, Georgia, Cambria, "Times New Roman", Times, serif'
+              }}
+            >
+              <span className="text-base">🤖</span> Support my Claude habit
+            </a>
+          </div>
+          <p className="text-gray-600"> 
           </p>
           <details className="text-sm text-gray-500 mt-2 max-w-md mx-auto">
             <summary className="cursor-pointer hover:text-gray-700">🔍 How to verify no data collection</summary>
@@ -432,7 +445,7 @@ export default function Home() {
           )}
         </header>
 
-        <div className={`grid gap-6 h-[calc(100vh-200px)] ${isInputCollapsed ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-2'}`}>
+        <div className={`grid gap-6 flex-1 min-h-0 ${isInputCollapsed ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-2'}`}>
           {!isInputCollapsed && (
             <div className="bg-white rounded-xl shadow-lg p-6">
               <div className="flex justify-between items-center mb-4">
@@ -450,7 +463,7 @@ export default function Home() {
                 value={input}
                 onChange={(e) => handleInputChange(e.target.value)}
                 placeholder="Paste your JSON, YAML, XML, etc, here..."
-                className="w-full h-[calc(100%-3rem)] resize-none border border-gray-300 rounded-lg p-4 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full h-[calc(100%-4rem)] resize-none border border-gray-300 rounded-lg p-4 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 onPaste={() => {
                   // Prevent scroll jumping on paste
                   const currentScrollY = window.scrollY;
@@ -530,7 +543,7 @@ export default function Home() {
                 </div>
               </div>
             )}
-            <div className="h-[calc(100%-4rem)] border border-gray-300 rounded-lg p-4 overflow-auto">
+            <div className="flex-1 border border-gray-300 rounded-lg p-4 overflow-auto">
               {error ? (
                 <div className="text-red-500 font-mono text-sm">{error}</div>
               ) : (detectedFormat === "JSON" || detectedFormat === "YAML") && jsonLines.length > 0 ? (
@@ -570,7 +583,7 @@ export default function Home() {
           </div>
         </div>
         
-        <footer className="text-center mt-8 pt-6 border-t border-gray-200">
+        <footer className="text-center mt-8 pt-6 border-t border-gray-200 flex-shrink-0">
           <p className="text-sm text-gray-500 mb-3">
             Created with ❤️ by{" "}
             <a 
