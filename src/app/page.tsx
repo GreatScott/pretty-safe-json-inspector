@@ -72,7 +72,7 @@ export default function Home() {
     const formattedLines = formatted.split('\n');
     const pathStack: string[] = [];
     
-    formattedLines.forEach((line, index) => {
+    formattedLines.forEach((line) => {
       const trimmedLine = line.trim();
       const indent = line.length - line.trimStart().length;
       const currentDepth = Math.floor(indent / 2);
@@ -162,10 +162,10 @@ export default function Home() {
     const lines = input.split('\n');
     const formatted: string[] = [];
     const pathLines: JSONLine[] = [];
-    let currentPath: string[] = [];
-    let arrayCounters: { [depth: number]: number } = {};
+    const currentPath: string[] = [];
+    const arrayCounters: { [depth: number]: number } = {};
     
-    lines.forEach((line, index) => {
+    lines.forEach((line) => {
       const trimmed = line.trim();
       if (!trimmed || trimmed.startsWith('#')) {
         formatted.push(line);
@@ -254,7 +254,7 @@ export default function Home() {
       .replace(/></g, ">\n<")
       .replace(/^\s*\n/gm, "")
       .split("\n")
-      .map((line, index, arr) => {
+      .map((line) => {
         const trimmed = line.trim();
         if (!trimmed) return line;
         
@@ -324,8 +324,8 @@ export default function Home() {
       await navigator.clipboard.writeText(formattedOutput);
       setCopySuccess(true);
       setTimeout(() => setCopySuccess(false), 2000);
-    } catch (err) {
-      console.error("Failed to copy text: ", err);
+    } catch {
+      console.error("Failed to copy text");
     }
   };
 
@@ -437,7 +437,7 @@ export default function Home() {
                 onChange={(e) => handleInputChange(e.target.value)}
                 placeholder="Paste your JSON, YAML, XML, etc, here..."
                 className="w-full h-[calc(100%-3rem)] resize-none border border-gray-300 rounded-lg p-4 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                onPaste={(e) => {
+                onPaste={() => {
                   // Prevent scroll jumping on paste
                   const currentScrollY = window.scrollY;
                   setTimeout(() => {
@@ -611,7 +611,7 @@ export default function Home() {
               )}
             </div>
             <p className="mb-1">
-              <strong>Disclaimer:</strong> This tool is provided "as is" without warranty of any kind. 
+              <strong>Disclaimer:</strong> This tool is provided &quot;as is&quot; without warranty of any kind. 
               Users are responsible for ensuring the security and confidentiality of their data. The creators are not responsible for any data loss, security breaches, or other issues 
               that may arise from the use of this tool. 
             </p>
