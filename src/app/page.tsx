@@ -20,6 +20,7 @@ export default function Home() {
   const [selectedLanguage, setSelectedLanguage] = useState("Python");
   const [isInputCollapsed, setIsInputCollapsed] = useState(false);
   const [variableName, setVariableName] = useState("data");
+  const [includeFallback, setIncludeFallback] = useState(true);
 
   const detectFormat = (input: string): string => {
     const trimmed = input.trim();
@@ -329,8 +330,8 @@ export default function Home() {
     }
   };
 
-  const generateCodePath = (keyPath: string[], language: string, isFromJSON: boolean = false, varName: string = "data"): string => {
-    const formatKey = (key: string, language: string, isFromJSON: boolean) => {
+  const generateCodePath = (keyPath: string[], language: string, isFromJSON: boolean = false, varName: string = "data", useFallback: boolean = true): string => {
+    const formatKey = (key: string, language: string, isFromJSON: boolean, useFallback: boolean) => {
       // For JSON, all keys are object keys (even numeric ones like "1")
       // For YAML, numeric keys are true array indices
       const isArrayIndex = !isFromJSON && /^\d+$/.test(key);
@@ -342,26 +343,27 @@ export default function Home() {
       // Handle different languages for object keys
       switch (language) {
         case "Python":
-          return `.get('${key}')`;
+          return useFallback ? `.get('${key}', {})` : `.get('${key}')`;
         case "JavaScript":
         case "TypeScript":
           return `?.${key}`;
         case "Go":
           return `["${key}"]`;
         case "Java":
+          return useFallback ? `.getOrDefault("${key}", new HashMap<>())` : `.get("${key}")`;
         case "Rust":
-          return `.get("${key}")`;
+          return useFallback ? `.get("${key}").unwrap_or(&HashMap::new())` : `.get("${key}")`;
         default:
-          return `.get('${key}')`;
+          return useFallback ? `.get('${key}', {})` : `.get('${key}')`;
       }
     };
 
     switch (language) {
       case "Python":
-        return `${varName}${keyPath.map(key => formatKey(key, language, isFromJSON)).join('')}`;
+        return `${varName}${keyPath.map(key => formatKey(key, language, isFromJSON, useFallback)).join('')}`;
       case "JavaScript":
       case "TypeScript":
-        return `${varName}${keyPath.map(key => formatKey(key, language, isFromJSON)).join('')}`;
+        return `${varName}${keyPath.map(key => formatKey(key, language, isFromJSON, useFallback)).join('')}`;
       case "Go":
         return keyPath.reduce((acc, key, index) => {
           const isArrayIndex = !isFromJSON && /^\d+$/.test(key);
@@ -372,11 +374,11 @@ export default function Home() {
         }, '');
       case "Java":
       case "Rust":
-        return `${varName}${keyPath.map(key => formatKey(key, language, isFromJSON)).join('')}`;
+        return `${varName}${keyPath.map(key => formatKey(key, language, isFromJSON, useFallback)).join('')}`;
       case "XPath":
         return `/${keyPath.join('/')}`;
       default:
-        return `${varName}${keyPath.map(key => formatKey(key, language, isFromJSON)).join('')}`;
+        return `${varName}${keyPath.map(key => formatKey(key, language, isFromJSON, useFallback)).join('')}`;
     }
   };
 
@@ -384,7 +386,7 @@ export default function Home() {
     try {
       const keyPath = JSON.parse(pathString);
       const isFromJSON = detectedFormat === "JSON";
-      const codeSnippet = generateCodePath(keyPath, selectedLanguage, isFromJSON, variableName);
+      const codeSnippet = generateCodePath(keyPath, selectedLanguage, isFromJSON, variableName, includeFallback);
       await navigator.clipboard.writeText(codeSnippet);
       setClickedLine(lineIndex);
       setTimeout(() => setClickedLine(null), 500);
@@ -394,8 +396,34 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 flex flex-col">
-      <div className="max-w-7xl mx-auto flex-1 flex flex-col">
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "WebApplication",
+            "name": "Pretty Safe JSON Inspector",
+            "description": "Free online JSON formatter and code snippet generator with 100% client-side processing",
+            "url": "https://prettysafejson.xyz",
+            "applicationCategory": "DeveloperApplication",
+            "operatingSystem": "Any",
+            "permissions": "no-permissions-required",
+            "offers": {
+              "@type": "Offer",
+              "price": "0",
+              "priceCurrency": "USD"
+            },
+            "creator": {
+              "@type": "Person",
+              "name": "Scott",
+              "url": "https://github.com/greatscott"
+            }
+          })
+        }}
+      />
+      <div className="min-h-screen bg-gray-50 p-4 flex flex-col">
+        <div className="max-w-7xl mx-auto flex-1 flex flex-col">
         <header className="text-center mb-8">
           <h1 className="text-4xl font-bold text-gray-800 mb-2">
             Pretty Safe JSON Inspector
@@ -514,32 +542,49 @@ export default function Home() {
             </div>
             {(detectedFormat === "JSON" || detectedFormat === "YAML") && (
               <div className="mb-2">
-                <div className="flex items-center justify-between mb-1">
-                  <p className="text-sm text-gray-500">
-                    Hover over line to get code snippet to access field
-                  </p>
-                  <select
-                    value={selectedLanguage}
-                    onChange={(e) => setSelectedLanguage(e.target.value)}
-                    className="text-sm border border-gray-300 rounded px-2 py-1 bg-white"
-                  >
-                    <option value="Python">Python</option>
-                    <option value="JavaScript">JavaScript</option>
-                    <option value="TypeScript">TypeScript</option>
-                    <option value="Go">Go</option>
-                    <option value="Java">Java</option>
-                    <option value="Rust">Rust</option>
-                  </select>
-                </div>
-                <div className="flex items-center gap-2">
-                  <label className="text-sm text-gray-600">Variable name:</label>
-                  <input
-                    type="text"
-                    value={variableName}
-                    onChange={(e) => setVariableName(e.target.value)}
-                    placeholder="data"
-                    className="text-sm border border-gray-300 rounded px-2 py-1 bg-white flex-1 placeholder-gray-400"
-                  />
+                <p className="text-sm text-gray-500 mb-2">
+                  Hover over line to get code snippet to access field
+                </p>
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                  <h3 className="text-sm font-medium text-gray-700 mb-3">Field Access Code Snippet Options</h3>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm text-gray-600">Language:</label>
+                      <select
+                        value={selectedLanguage}
+                        onChange={(e) => setSelectedLanguage(e.target.value)}
+                        className="text-sm border border-gray-300 rounded px-2 py-1 bg-white"
+                      >
+                        <option value="Python">Python</option>
+                        <option value="JavaScript">JavaScript</option>
+                        <option value="TypeScript">TypeScript</option>
+                        <option value="Go">Go</option>
+                        <option value="Java">Java</option>
+                        <option value="Rust">Rust</option>
+                      </select>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <label className="text-sm text-gray-600">Variable name:</label>
+                      <input
+                        type="text"
+                        value={variableName}
+                        onChange={(e) => setVariableName(e.target.value)}
+                        placeholder="data"
+                        className="text-sm border border-gray-300 rounded px-2 py-1 bg-white flex-1 placeholder-gray-400"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={includeFallback}
+                          onChange={(e) => setIncludeFallback(e.target.checked)}
+                          className="rounded"
+                        />
+                        Future-proof: include default fallbacks if entry doesn't exist
+                      </label>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
@@ -644,7 +689,8 @@ export default function Home() {
             </p>
           </div>
         </footer>
+        </div>
       </div>
-    </div>
+    </>
   );
 }
